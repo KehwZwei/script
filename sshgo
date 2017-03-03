@@ -1,0 +1,90 @@
+#!/usr/bin/expect
+set timeout -1
+
+set configFile [open "~/sshgo/config.json"]
+set configs [split [read $configFile] "\n"]
+close $configFile
+
+set red "\033\[1;31m"
+set green "\033\[2;32m"
+set yellow "\033\[1;33m"
+set blue "\033\[1;34m"
+set non_color "\033\[;0m"
+
+while {true} {
+
+	exec tput clear >@ stdout
+
+	send_user "Please choose a host to connect.${non_color}\n${blue}ID\tName\tHost${non_color}\n"
+	
+	foreach config $configs {
+		if {$config == ""} {
+			continue
+		}
+		set choice [exec node -pe "temp=$config;temp.id"]
+		set name [exec node -pe "temp=$config;temp.name"]
+		set host [exec node -pe "temp=$config;temp.host"]
+		set password [exec node -pe "temp=$config;temp.password"]
+		
+		send_user "${blue}$choice\t${green}$name\t$host${non_color}\n"
+	}
+
+	stty -echo
+
+	expect_user -re "(.*)\n"
+
+	stty echo
+
+	set user_choice "$expect_out(1,string)"
+
+	send_user "$user_choice\n"
+
+	foreach config $configs {
+		if {$config == ""} {
+			continue
+		}
+		set choice [exec node -pe "temp=$config;temp.id"]
+		set name [exec node -pe "temp=$config;temp.name"]
+		set host [exec node -pe "temp=$config;temp.host"]
+		set password [exec node -pe "temp=$config;temp.password"]
+		
+		if {$user_choice == $choice} {
+			spawn ssh $host
+			expect {
+				-r "\[Pp]assword" {
+					send "$password\n"
+					expect {
+						"$ " {
+							exec tput clear >@ stdout
+							send "\n"
+							interact
+							exec tput clear >@ stdout
+							exit 0
+						}
+						"Permission denied, please try again." {
+							send_user "Wrong password."
+							exit 0
+						}
+						"Verification code:" {
+							break
+						}
+					}
+					exp_continue
+				}
+				"(yes/no)?" {
+					send "yes\n"
+					exp_continue
+				}
+				"Verification code:" {
+					stty -echo
+					expect_user -re "(.*)\n"
+					stty echo
+					set code "$expect_out(1,string)"
+					send "$code\n"
+					exp_continue
+				}
+			}
+		}
+	}
+
+}

@@ -1,0 +1,141 @@
+#/bin/bash
+HOME=$(pwd)
+
+git config --global user.email "kehw.zwei@gmail.com"
+git config --global user.name "HeWei Ke"
+git config --global credential.helper store
+
+function main {
+    case "$1" in
+            commit)
+                fetch
+                commit $2
+                ;;
+            push)
+                fetch
+                push $2
+                ;;
+            push:*)
+                fetch
+                commit $(echo $1 | cut -d':' -f 2)
+                push $2
+                ;;
+            drop)
+                drop
+                ;;
+            status)
+                status
+                ;;
+            fetch)
+                fetch
+                ;;
+            pull)
+                pull
+                ;;
+            *)
+                echo $"Usage: {commit|push|push:*|drop|status|fetch|pull}"
+                exit 0
+    esac
+}
+
+function pull {
+    cd $HOME
+
+    for file in $(ls); do
+        if [ ! -d $file ]; then
+            continue
+        fi
+        cd $file
+        if [ -d ".git" ]; then
+            git pull --rebase
+        fi
+        cd $HOME
+    done
+}
+
+function fetch {
+    cd $HOME
+
+    for file in $(ls); do
+        if [ ! -d $file ]; then
+            continue
+        fi
+        cd $file
+        if [ -d ".git" ]; then
+            git fetch
+        fi
+        cd $HOME
+    done
+}
+
+function commit {
+    if [ -z $1 ]; then
+        echo need a commit message.
+        exit 0
+    fi
+
+    echo $1
+
+    cd $HOME
+
+    for file in $(ls); do
+        if [ ! -d $file ]; then
+            continue
+        fi
+        cd $file
+        if [ -d ".git" ]; then
+            git add .
+            git commit -m "$1"
+        fi
+        cd $HOME
+    done
+
+}
+
+function push {
+    cd $HOME
+
+    for file in $(ls); do
+        if [ ! -d $file ]; then
+            continue
+        fi
+        cd $file
+        if [ -d ".git" ]; then
+            git push origin $1
+        fi
+        cd $HOME
+    done
+}
+
+function drop {
+    cd $HOME
+    for file in $(ls); do
+        if [ ! -d $file ]; then
+            continue
+        fi
+        cd $file
+        if [ -d ".git" ]; then
+            git reset --hard .
+            git checkout .
+            git clean -fd
+        fi
+        cd $HOME
+    done
+}
+
+function status {
+    cd $HOME
+    for file in $(ls); do
+        if [ ! -d $file ]; then
+            continue
+        fi
+        cd $file
+        if [ -d ".git" ]; then
+            echo "$file:"
+            git status -s
+        fi
+        cd $HOME
+    done
+}
+
+main $*

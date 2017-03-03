@@ -1,0 +1,89 @@
+#!/usr/bin/expect
+set template_group_id "temp_group_id"
+set template_artifact_id "temp_artifact_id"
+set template_version "temp_version"
+set template_project_name "temp_project_name"
+
+set readme_file_exists [file exists "README.md"]
+if {$readme_file_exists == 1} {
+	set readmeFile [open "README.md"]
+	set readme [read $readmeFile]
+	close $readmeFile
+}
+set pom_file_exists [file exists "pom.xml"]
+if {$pom_file_exists == 1} {
+        set pomFile [open "pom.xml"]
+        set pom [read $pomFile]
+        close $pomFile
+}
+set red "\033\[1;31m"
+set green "\033\[2;32m"
+set yellow "\033\[1;33m"
+set blue "\033\[1;34m"
+set non_color "\033\[;0m"
+
+set confirm "n"
+
+send_user "Project name:"
+expect_user -re "(.*)\n"
+set project_name "$expect_out(1,string)"
+
+while {($readme_file_exists == 1) && ($confirm != "y")} {
+
+	set newReadme [exec echo $readme | sed -r "s/$template_project_name/$project_name/g"]
+
+	send_user "${blue}new README.md:${green}\n$newReadme\n${non_color}"
+
+	send_user "confirm?(y/n):"
+
+	expect_user -re "(.*)\n"
+
+	set confirm "$expect_out(1,string)"
+
+	if {$confirm != "y"} {
+		continue
+	}
+
+	exec echo $newReadme -> README.md
+}
+
+set confirm "n"
+
+while {($pom_file_exists == 1) && ($confirm != "y")} {
+	send_user "Group id:"
+        expect_user -re "(.*)\n"
+        set group_id "$expect_out(1,string)"
+	send_user "Artifact id:"
+        expect_user -re "(.*)\n"
+        set artifact_id "$expect_out(1,string)"
+	send_user "Version:"
+        expect_user -re "(.*)\n"
+        set version "$expect_out(1,string)"
+	
+	set newPom [exec echo $pom | sed -r "s/$template_group_id/$group_id/g" | sed -r "s/$template_artifact_id/$artifact_id/g" | sed -r "s/$template_version/$version/g"]
+	send_user "${blue}new pom.xml:${green}\n$newPom\n${non_color}"
+
+        send_user "confirm?(y/n):"
+
+        expect_user -re "(.*)\n"
+
+        set confirm "$expect_out(1,string)"
+
+        if {$confirm != "y"} {
+                continue
+        }
+
+        exec echo $newPom -> pom.xml
+}
+
+send_user "Git remote:"
+expect_user -re "(.*)\n"
+set git_remote "$expect_out(1,string)"
+
+foreach remote [exec git remote] {
+	exec git remote remove $remote
+}
+
+exec git remote add origin $git_remote
+
+send_user "${green}done.${non_color}"
